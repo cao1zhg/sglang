@@ -6,7 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-unsafe
-
+import logging
 import functools
 import inspect
 import sys
@@ -17,6 +17,8 @@ import torch
 import triton  # @manual
 import triton.language as tl  # @manual
 from triton.runtime import driver  # @manual
+
+logger = logging.getLogger(__name__)
 
 
 def map_dtype_to_triton(dtype: torch.dtype) -> tl.dtype:
@@ -148,13 +150,14 @@ _NV_CONFIGS = [
         num_warps=num_warps,
         num_ctas=num_ctas,
     )
-    for block_size_m in [64, 128]
-    for block_size_n in [64, 128, 256]
-    for block_size_k in [64, 128, 256]
-    for num_stages in [3, 4]
-    for num_warps in [4, 8]
+    for block_size_m in [128]
+    for block_size_n in [256]
+    for block_size_k in [64]
+    for num_stages in [4]
+    for num_warps in [8]
     for num_ctas in [1]
 ]
+# solid tuned config (cao1zhg)
 
 _HAS_WS_SUPPORT = None
 
@@ -332,6 +335,8 @@ def early_config_prune(configs, named_args, dtsize=None, dtype=None, **kwargs):
             if use_tma_load_on_scales:
                 continue
         pruned_configs.append(config)
+    for config in pruned_configs:
+        logger.info(f"pruned_configs: {config.__str__()}")
 
     return pruned_configs
 
