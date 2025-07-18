@@ -409,42 +409,44 @@ def run_benchmark(
 
 def verify_correctness(model_config):
     print("Verifying correctness...")
-    batch_size = 128
+    batch_sizes = [64, 128, 256]
     num_groups = model_config["num_groups"]
     hidden_size = model_config["hidden_size"]
     intermediate_size = model_config["intermediate_size"]
 
-    test_data = create_test_data(batch_size, num_groups, hidden_size, intermediate_size)
-    (
-        x,
-        w_fbgemm,
-        w_sglang,
-        c_fbgemm,
-        c_sglang,
-        m_sizes,
-        seg_indptr,
-        weight_indices,
-    ) = test_data
+    for batch_size in batch_sizes:
+        for _ in range(50):
+            test_data = create_test_data(batch_size, num_groups, hidden_size, intermediate_size)
+            (
+                x,
+                w_fbgemm,
+                w_sglang,
+                c_fbgemm,
+                c_sglang,
+                m_sizes,
+                seg_indptr,
+                weight_indices,
+            ) = test_data
 
-    result_fbgemm = fbgemm_grouped_gemm(x, w_fbgemm, m_sizes, use_fast_accum=True)
+            result_fbgemm = fbgemm_grouped_gemm(x, w_fbgemm, m_sizes, use_fast_accum=True)
 
-    result_sglang = sglang_grouped_gemm(
-        x,
-        w_sglang,
-        c_sglang,
-        num_groups,
-        weight_column_major=True,
-        seg_indptr=seg_indptr,
-        weight_indices=weight_indices,
-        c_dtype=c_sglang.dtype,
-    )
+            result_sglang = sglang_grouped_gemm(
+                x,
+                w_sglang,
+                c_sglang,
+                num_groups,
+                weight_column_major=True,
+                seg_indptr=seg_indptr,
+                weight_indices=weight_indices,
+                c_dtype=c_sglang.dtype,
+            )
 
-    if torch.allclose(result_fbgemm, result_sglang, rtol=1e-3, atol=1e-3):
-        print("✓ BF16 Correctness verification passed!")
-    else:
-        max_diff = torch.max(torch.abs(result_fbgemm - result_sglang))
-        print(f"✗ BF16 Correctness verification failed! Max diff: {max_diff}")
-        return False
+            if torch.allclose(result_fbgemm, result_sglang, rtol=1e-3, atol=1e-3):
+                print("✓ BF16 Correctness verification passed!")
+            else:
+                max_diff = torch.max(torch.abs(result_fbgemm - result_sglang))
+                print(f"✗ BF16 Correctness verification failed! Max diff: {max_diff}")
+                return False
 
     return True
 
