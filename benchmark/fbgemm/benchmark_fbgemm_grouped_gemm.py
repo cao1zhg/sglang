@@ -21,45 +21,11 @@ from sglang.srt.layers.moe.ep_moe.kernels import (
 
 
 def get_model_config(model_name: str, tp_size: int):
-    config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-
-    if config.architectures[0] == "DbrxForCausalLM":
-        num_groups = config.ffn_config.moe_num_experts
-        intermediate_size = config.ffn_config.ffn_hidden_size
-    elif config.architectures[0] == "JambaForCausalLM":
-        num_groups = config.num_experts
-        intermediate_size = config.intermediate_size
-    elif config.architectures[0] == "Qwen2MoeForCausalLM":
-        num_groups = config.num_experts
-        intermediate_size = config.moe_intermediate_size
-    elif config.architectures[0] == "Qwen3MoeForCausalLM":
-        num_groups = config.num_experts
-        intermediate_size = config.moe_intermediate_size
-    elif config.architectures[0] in [
-        "DeepseekV2ForCausalLM",
-        "DeepseekV3ForCausalLM",
-    ]:
-        num_groups = config.n_routed_experts
-        intermediate_size = config.moe_intermediate_size
-    elif config.architectures[0] == "Llama4ForConditionalGeneration":
-        num_groups = config.text_config.num_local_experts
-        intermediate_size = config.text_config.intermediate_size
-    elif config.architectures[0] in [
-        "Grok1ForCausalLM",
-        "Grok1ImgGen",
-        "Grok1AForCausalLM",
-    ]:
-        num_groups = config.num_local_experts
-        intermediate_size = config.moe_intermediate_size
-    else:
-        num_groups = config.num_local_experts
-        intermediate_size = config.intermediate_size
-
     shape_configs = {
-        "num_groups": num_groups,
-        "hidden_size": config.hidden_size,
-        "intermediate_size": intermediate_size,
-        "dtype": config.torch_dtype,
+        "num_groups": 160,
+        "hidden_size": 6144,
+        "intermediate_size": 2560,
+        "dtype": torch.bfloat16,
     }
     print(f"{shape_configs=}")
     return shape_configs
