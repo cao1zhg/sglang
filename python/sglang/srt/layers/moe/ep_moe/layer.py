@@ -946,10 +946,6 @@ class DeepEPMoE(EPMoE):
             routed_scaling_factor=routed_scaling_factor,
         )
         self.deepep_mode = deepep_mode
-        if self.deepep_mode.enable_low_latency():
-            assert (
-                deep_gemm_wrapper.ENABLE_JIT_DEEPGEMM
-            ), f"DeepEP {self.deepep_mode} mode requires deep_gemm"
         self.w13_weight_fp8 = (
             self.w13_weight,
             (
@@ -987,10 +983,11 @@ class DeepEPMoE(EPMoE):
             else:
                 return self.forward_normal(hidden_states, reorder_topk_ids, seg_indptr)
         elif resolved_deepep_mode == DeepEPMode.low_latency:
-            if hidden_states[0].dtype == torch.bfloat16:
+            if deep_gemm_wrapper.ENABLE_JIT_DEEPGEMM:
+                return self.forward_deepgemm_masked(hidden_states, masked_m, expected_m)
+            else:
                 assert self.use_fb_grouped_gemm
                 return self.forward_fb_grouped_gemm_bf16(hidden_states, masked_m, expected_m)
-            return self.forward_deepgemm_masked(hidden_states, masked_m, expected_m)
         else:
             raise ValueError(f"Invalid deepep_mode: {self.deepep_mode}")
 
