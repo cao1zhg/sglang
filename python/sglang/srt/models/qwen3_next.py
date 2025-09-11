@@ -496,23 +496,11 @@ class Qwen3HybridLinearDecoderLayer(nn.Module):
                 hidden_act=config.hidden_act,
                 quant_config=quant_config,
             )
-        if getattr(
-            config, "use_gemma_rms_norm", getattr(config, "apply_layernorm_1p", False)
-        ):
-            logger.warning_once(
-                "Using Gemma RMSNorm for input normalization and post attn normalization."
-            )
-            self.input_layernorm = GemmaRMSNorm(
-                config.hidden_size, eps=config.rms_norm_eps
-            )
-            self.post_attention_layernorm = GemmaRMSNorm(
-                config.hidden_size, eps=config.rms_norm_eps
-            )
-        else:
-            self.input_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-            self.post_attention_layernorm = RMSNorm(
-                config.hidden_size, eps=config.rms_norm_eps
-            )
+
+        self.input_layernorm = GemmaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_attention_layernorm = GemmaRMSNorm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
 
         self.layer_communicator = LayerCommunicator(
             layer_scatter_modes=self.layer_scatter_modes,
@@ -663,23 +651,11 @@ class Qwen3HybridAttentionDecoderLayer(nn.Module):
                 hidden_act=config.hidden_act,
                 quant_config=quant_config,
             )
-        if getattr(
-            config, "use_gemma_rms_norm", getattr(config, "apply_layernorm_1p", False)
-        ):
-            logger.warning_once(
-                "Using Gemma RMSNorm for input normalization and post attn normalization."
-            )
-            self.input_layernorm = GemmaRMSNorm(
-                config.hidden_size, eps=config.rms_norm_eps
-            )
-            self.post_attention_layernorm = GemmaRMSNorm(
-                config.hidden_size, eps=config.rms_norm_eps
-            )
-        else:
-            self.input_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-            self.post_attention_layernorm = RMSNorm(
-                config.hidden_size, eps=config.rms_norm_eps
-            )
+
+        self.input_layernorm = GemmaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_attention_layernorm = GemmaRMSNorm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
 
         self.q_norm = GemmaRMSNorm(self.head_dim, eps=config.rms_norm_eps)
         self.k_norm = GemmaRMSNorm(self.head_dim, eps=config.rms_norm_eps)
@@ -822,13 +798,7 @@ class Qwen3NextModel(nn.Module):
             config.num_hidden_layers, get_layer, prefix=f"{prefix}.layers"
         )
 
-        if getattr(
-            config, "use_gemma_rms_norm", getattr(config, "apply_layernorm_1p", False)
-        ):
-            logger.warning_once("Using Gemma RMSNorm for final normalization.")
-            self.norm = GemmaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        else:
-            self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.norm = GemmaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.infer_count = 0
 
     def forward(
