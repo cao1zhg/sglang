@@ -45,11 +45,16 @@ def create_fused_set_kv_buffer_arg(
     k_buffer = token_to_kv_pool.get_key_buffer(layer_id)
     v_buffer = token_to_kv_pool.get_value_buffer(layer_id)
 
+    # 确保cache_loc是contiguous的，因为CUDA kernel要求它必须是contiguous
+    cache_loc = forward_batch.out_cache_loc
+    if not cache_loc.is_contiguous():
+        cache_loc = cache_loc.contiguous()
+
     return FusedSetKVBufferArg(
         value=value,
         k_buffer=k_buffer.view(k_buffer.shape[0], -1),
         v_buffer=v_buffer.view(v_buffer.shape[0], -1),
         k_scale=layer.k_scale,
         v_scale=layer.v_scale,
-        cache_loc=forward_batch.out_cache_loc,
+        cache_loc=cache_loc,
     )
