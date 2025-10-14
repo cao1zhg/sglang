@@ -24,6 +24,7 @@ import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass
+from contextlib import nullcontext
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -2040,7 +2041,7 @@ class ModelRunner:
         with get_global_expert_distribution_recorder().with_forward_pass(
             self.forward_pass_id,
             forward_batch,
-        ):
+        ) if self.eplb_manager is not None else nullcontext():
             output = self._forward_raw(
                 forward_batch,
                 skip_attn_backend_init,
