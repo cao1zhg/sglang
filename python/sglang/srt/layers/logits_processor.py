@@ -41,6 +41,10 @@ from sglang.srt.layers.dp_attention import (
     get_global_dp_buffer,
     get_local_attention_dp_size,
     set_dp_buffer_len,
+    get_attention_tp_group,
+)
+from sglang.srt.layers.moe import (
+    get_moe_a2a_backend,
 )
 from sglang.srt.layers.vocab_parallel_embedding import VocabParallelEmbedding
 from sglang.srt.managers.schedule_batch import global_server_args_dict
@@ -383,6 +387,23 @@ class LogitsProcessor(nn.Module):
             return self.compute_logprobs_for_multi_item_scoring(
                 input_ids, hidden_states, lm_head, logits_metadata, multi_item_delimiter
             )
+
+        # for support DeepEP, all gather hidden_states captured because the scatter mode of input and output is SCATTERED on DeepEP
+        if aux_hidden_states is not None and get_moe_a2a_backend().is_deepep():
+            global_aux_hidden_states = []
+            attention_tp_size = get_attention_tp_size()
+            for hidden in aux_hidden_states:
+                global_hidden, hidden = (
+                    torch.empty(
+                        (hidden.shape[0] * attention_tp_size, *hidden.shape[1:]),
+                        dtype=hidden.dtype,
+                        device=hidden.device,
+                    ),
+                    hidden,
+                )
+                get_attention_tp_group().all_gather_into_tensor(global_hidden, hidden)
+                global_aux_hidden_states.append(global_hidden)
+            aux_hidden_states = global_aux_hidden_states
 
         # Get the last hidden states and last logits for the next token prediction
         if (

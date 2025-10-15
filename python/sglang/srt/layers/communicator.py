@@ -78,7 +78,7 @@ class ScatterMode(Enum):
     TP_ATTN_FULL = auto()
     FULL = auto()
 
-    @staticmethod
+    @staticmethod       
     def model_input_output():
         """The scatter mode for model forward pass input and output data"""
         return ScatterMode.TP_ATTN_FULL

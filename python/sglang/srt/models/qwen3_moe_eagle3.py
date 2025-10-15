@@ -127,7 +127,10 @@ class Qwen3MoeForCausalLMEagle3(Qwen3MoeForCausalLM):
             )
 
         if hidden_states.shape[0] > 0:
-            hidden_states, _ = self.norm(hidden_states, residual)
+            if residual is not None:
+                hidden_states, _ = self.norm(hidden_states, residual)
+            else:
+                hidden_states = self.norm(hidden_states)
 
         return self.logits_processor(
             input_ids, hidden_states, self.lm_head, forward_batch
