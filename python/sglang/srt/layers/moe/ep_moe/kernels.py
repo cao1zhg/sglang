@@ -941,6 +941,67 @@ def moe_ep_deepgemm_preprocess(
         gateup_input_scale,
     )
 
+@triton.jit
+def compute_constant_kernel(
+    constant_expert_indices,
+    constant_expert_weights,
+    constant_weights,
+    output,
+    top_k: tl.constexpr,
+    num_tokens: tl.constexpr,
+    hidden_dim: tl.constexpr,
+):
+    b = tl.program_id(0)
+    k = tl.program_id(1)
+    e = tl.load(constant_expert_indices + b * top_k + k)
+    
+    if e < 0: # skip invalid constant expert
+        return
+    
+    w = tl.load(constant_expert_weights + b * top_k + k)
+    # constant_weights[e, :] * w -> output[b, :]
+
+    val = tl.load(constant_weights + e * hidden_dim + tl.arange(0, hidden_dim))
+    val = val * w.to(val.dtype)
+    tl.store(output + b * hidden_dim + tl.arange(0, hidden_dim), val)
+
+
+def constant_experts_compute_triton(
+    expert_indices, expert_weights, num_experts, num_constant_experts, constant_weights, hidden_states
+):
+    N = expert_indices.numel()
+    top_k = expert_indices.size(-1)
+    grid = lambda meta: (triton.cdiv(N, meta["BLOCK_SIZE"]),)
+
+    normal_expert_mask = expert_indices < num_experts
+    constant_expert_mask = expert_indices >= num_experts
+
+    constant_expert_indices = expert_indices.clone()
+    constant_expert_weights = expert_weights.clone()
+    constant_expert_indices -= num_experts
+    constant_expert_indices[normal_expert_mask] = -1
+    constant_expert_weights[normal_expert_mask] = 0.0
+
+    expert_indices[constant_expert_mask] = num_experts
+    expert_weights[constant_expert_mask] = 0.0
+
+    output = torch.zeros_like(hidden_states).to(hidden_states.device)
+    hidden_dim = hidden_states.size(-1)
+    num_tokens = hidden_states.size(0)
+
+    grid = (num_tokens, top_k)
+
+    compute_constant_kernel[grid](
+        constant_expert_indices, # [B, K]
+        constant_expert_weights, # [B, K]
+        constant_weights, # [E, D]
+        output, # [B, D]
+        top_k, # K
+        num_tokens, # B
+        hidden_dim, # D
+    )
+
+    return output
 
 @triton.jit
 def compute_identity_kernel(
