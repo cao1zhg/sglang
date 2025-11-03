@@ -15,6 +15,7 @@ from sglang.srt.distributed import (
 )
 from sglang.srt.eplb.expert_distribution import get_global_expert_distribution_recorder
 from sglang.srt.eplb.expert_location import ModelConfigForExpertLocation
+from sglang.srt.eplb.expert_location_dispatch import ExpertLocationDispatchInfo
 from sglang.srt.layers.attention.fla.layernorm_gated import RMSNorm as RMSNormGated
 from sglang.srt.layers.attention.mamba.mamba import mamba_v2_sharded_weight_loader
 from sglang.srt.layers.communicator import LayerCommunicator, LayerScatterModes
@@ -337,9 +338,28 @@ class Qwen3NextSparseMoeBlock(nn.Module):
             # router_logits: (num_tokens, n_experts + n_const_experts)
             router_logits, _ = self.gate(hidden_states)
             shared_output = self._forward_shared_experts(hidden_states)
-            pass
+            topk_weights, topk_idx, _ = self.topk(
+                hidden_states, 
+                router_logits, 
+                num_token_non_padded=forward_batch.num_token_non_padded,
+                expert_location_dispatch_info=ExpertLocationDispatchInfo.init_new(
+                    layer_id=self.layer_id,
+                ),
+            )
+
+            if self.moe_plus_plus_constant > 0:
+                constant_expert_result = constant_experts_compute_triton(
+                    expert_indices = topk_idx,
+                    expert_weights = topk_weights,
+                    num_experts = self.config.num_experts,
+                    num_constant_experts = self.moe_plus_plus_constant,
+                    constant_weights = self.constant,
+                    hidden_states = hidden_states,
+                )
+            
+            topk_output = StandardTopKOutput(topk_weights, topk_idx, _)
         else:
-            pass
+            topk_output = self.topk.empty_topk_output(hidden_states.device)
 
         final_hidden_states = self.experts(
             hidden_states=hidden_states,
@@ -349,6 +369,9 @@ class Qwen3NextSparseMoeBlock(nn.Module):
         if shared_output is not None:
             final_hidden_states.add_(shared_output)
 
+        if self.moe_plus_plus_constant > 0:
+            final_hidden_states += constant_expert_result.to(final_hidden_states.device)
+
         return final_hidden_states
 
     def _forward_router_experts(self, hidden_states: torch.Tensor):
@@ -356,6 +379,10 @@ class Qwen3NextSparseMoeBlock(nn.Module):
         router_logits, _ = self.gate(hidden_states)
         router_logits = torch.randn_like(router_logits)
         topk_weights, topk_idx, _ = self.topk(hidden_states, router_logits)
+
+        # mask = topk_idx >= self.config.num_experts
+        # ratio = mask.float().mean().item()
+        # logger.info(f"{topk_idx.shape=} ratio of elements >= {self.config.num_experts}: {ratio:.4f} ({ratio*100:.2f}%)")
 
         if self.moe_plus_plus_constant > 0:
             constant_expert_result = constant_experts_compute_triton(

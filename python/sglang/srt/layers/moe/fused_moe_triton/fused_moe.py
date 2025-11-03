@@ -2,9 +2,9 @@
 # Adapted from https://github.com/vllm-project/vllm/blob/a6221a144af772fd1a68fe7e627935dc53e81738/vllm/model_executor/layers/fused_moe/fused_moe.py
 
 """Fused MoE kernel."""
-
 from __future__ import annotations
 
+import logging
 import functools
 import os
 from typing import TYPE_CHECKING, List, Optional
@@ -53,6 +53,8 @@ elif _is_hip:
             raise ImportError("aiter is required when SGLANG_USE_AITER is set to True")
     else:
         from vllm import _custom_ops as vllm_ops
+
+logger = logging.getLogger(__name__)
 
 padding_size = 128 if bool(int(os.getenv("SGLANG_MOE_PADDING", "0"))) else 0
 

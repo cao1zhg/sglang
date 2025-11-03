@@ -116,7 +116,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num-steps",
         type=int,
-        default=5,
+        default=20,
         help="The number of forward steps to profile.",
     )
     parser.add_argument(

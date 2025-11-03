@@ -173,7 +173,7 @@ def fused_moe_kernel_gptq_awq(
     token_mask = offs_token < num_valid_tokens
 
     off_experts = tl.load(expert_ids_ptr + pid_m).to(tl.int64)
-    if filter_expert and off_experts == -1:
+    if off_experts == -1:
         # -----------------------------------------------------------
         # Write back zeros to the output when the expert is not
         # in the current expert parallel rank.
@@ -418,7 +418,7 @@ def fused_moe_kernel(
     off_experts_i32 = tl.load(expert_ids_ptr + pid_m)
     off_experts = off_experts_i32.to(tl.int64)
 
-    if filter_expert and off_experts == -1:
+    if off_experts == -1:
         # -----------------------------------------------------------
         # Write back zeros to the output when the expert is not
         # in the current expert parallel rank.

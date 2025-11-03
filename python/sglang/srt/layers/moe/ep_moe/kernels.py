@@ -982,7 +982,7 @@ def constant_experts_compute_triton(
     constant_expert_indices[normal_expert_mask] = -1
     constant_expert_weights[normal_expert_mask] = 0.0
 
-    expert_indices[constant_expert_mask] = num_experts
+    expert_indices[constant_expert_mask] = -1
     expert_weights[constant_expert_mask] = 0.0
 
     output = torch.zeros_like(hidden_states).to(hidden_states.device)
