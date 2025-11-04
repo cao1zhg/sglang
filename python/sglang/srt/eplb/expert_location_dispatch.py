@@ -89,7 +89,19 @@ def topk_ids_logical_to_physical(
 def _topk_ids_logical_to_physical_static(
     topk_ids: torch.Tensor, info: Optional[ExpertLocationDispatchInfo]
 ) -> torch.Tensor:
-    return info.partial_logical_to_rank_dispatch_physical_map[topk_ids]
+    # Handle -1 (invalid expert IDs) and out-of-bounds indices
+    num_logical_experts = info.partial_logical_to_rank_dispatch_physical_map.shape[0]
+    mask = (topk_ids >= 0) & (topk_ids < num_logical_experts)
+    # Clamp to valid range to avoid out-of-bounds indexing
+    clamped_ids = torch.clamp(topk_ids, min = 0, max = num_logical_experts - 1)
+    mapped_values = info.partial_logical_to_rank_dispatch_physical_map[clamped_ids]
+    # Use full_like to ensure dtype and device match
+    result = torch.where(
+        mask, 
+        mapped_values, 
+        torch.full_like(mapped_values, -1, dtype=mapped_values.dtype)
+    )
+    return result
 
 
 def _topk_ids_logical_to_physical_dynamic(

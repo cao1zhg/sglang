@@ -273,7 +273,7 @@ class Qwen3NextSparseMoeBlock(nn.Module):
             top_k=config.num_experts_per_tok,
             renormalize=config.norm_topk_prob,
         )
-        self.topk.forward = self.topk.forward_native
+        # self.topk.forward = self.topk.forward_native
 
         self.experts = get_moe_impl_class(quant_config)(
             layer_id=self.layer_id,
@@ -334,6 +334,7 @@ class Qwen3NextSparseMoeBlock(nn.Module):
     
     def _forward_deepep(self, hidden_states: torch.Tensor, forward_batch: ForwardBatch):
         shared_output = None
+        constant_expert_result = None
         if hidden_states.shape[0] > 0:
             # router_logits: (num_tokens, n_experts + n_const_experts)
             router_logits, _ = self.gate(hidden_states)
@@ -369,7 +370,7 @@ class Qwen3NextSparseMoeBlock(nn.Module):
         if shared_output is not None:
             final_hidden_states.add_(shared_output)
 
-        if self.moe_plus_plus_constant > 0:
+        if constant_expert_result is not None:
             final_hidden_states += constant_expert_result.to(final_hidden_states.device)
 
         return final_hidden_states
@@ -430,7 +431,8 @@ class Qwen3NextSparseMoeBlock(nn.Module):
         hidden_states = hidden_states.view(-1, hidden_dim)
 
         if get_moe_a2a_backend().is_deepep():
-            raise NotImplementedError("DeepEPP is not supported for Qwen3NextSparseMoeBlock")
+            return self._forward_deepep(hidden_states, forward_batch)
+            # raise NotImplementedError("DeepEPP is not supported for Qwen3NextSparseMoeBlock")
 
         DUAL_STREAM_TOKEN_THRESHOLD = 1024
         if (self.alt_stream is not None
