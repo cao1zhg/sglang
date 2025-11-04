@@ -1,7 +1,7 @@
 import enum
 import logging
 from typing import Any, Iterable, Optional, Set, Tuple
-
+import os
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -338,6 +338,8 @@ class Qwen3NextSparseMoeBlock(nn.Module):
         if hidden_states.shape[0] > 0:
             # router_logits: (num_tokens, n_experts + n_const_experts)
             router_logits, _ = self.gate(hidden_states)
+            if os.environ.get("SGLANG_DYNAMIC_TOPK_DUMMY", "0") == "1":
+                router_logits = torch.randn_like(router_logits)
             shared_output = self._forward_shared_experts(hidden_states)
             topk_weights, topk_idx, _ = self.topk(
                 hidden_states, 
@@ -378,7 +380,8 @@ class Qwen3NextSparseMoeBlock(nn.Module):
     def _forward_router_experts(self, hidden_states: torch.Tensor):
         # router_logits: (num_tokens, n_experts + n_const_experts)
         router_logits, _ = self.gate(hidden_states)
-        router_logits = torch.randn_like(router_logits)
+        if os.environ.get("SGLANG_DYNAMIC_TOPK_DUMMY", "0") == "1":
+            router_logits = torch.randn_like(router_logits)
         topk_weights, topk_idx, _ = self.topk(hidden_states, router_logits)
 
         # mask = topk_idx >= self.config.num_experts
