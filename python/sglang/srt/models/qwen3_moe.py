@@ -250,6 +250,7 @@ class Qwen3MoeSparseMoeBlock(nn.Module):
             config.hidden_size,
             config.num_experts,
             bias=False,
+            params_dtype=torch.float32,
             quant_config=None,
             prefix=add_prefix("gate", prefix),
         )
@@ -300,7 +301,7 @@ class Qwen3MoeSparseMoeBlock(nn.Module):
         hidden_states = hidden_states.view(-1, hidden_dim)
 
         # router_logits: (num_tokens, n_experts)
-        router_logits, _ = self.gate(hidden_states)
+        router_logits, _ = self.gate(hidden_states.to(torch.float32))
         topk_output = self.topk(hidden_states, router_logits)
         final_hidden_states = self.experts(hidden_states, topk_output)
         if (
@@ -318,7 +319,7 @@ class Qwen3MoeSparseMoeBlock(nn.Module):
     ) -> torch.Tensor:
         if hidden_states.shape[0] > 0:
             # router_logits: (num_tokens, n_experts)
-            router_logits, _ = self.gate(hidden_states)
+            router_logits, _ = self.gate(hidden_states.to(torch.float32))
             topk_output = self.topk(
                 hidden_states,
                 router_logits,
@@ -340,7 +341,7 @@ class Qwen3MoeSparseMoeBlock(nn.Module):
             state.forward_batch.forward_mode, state.hidden_states_mlp_input
         ):
             # router_logits: (num_tokens, n_experts)
-            state.router_logits, _ = self.gate(state.hidden_states_mlp_input)
+            state.router_logits, _ = self.gate(state.hidden_states_mlp_input.to(torch.float32))
         else:
             state.router_logits = None
 
@@ -1124,7 +1125,7 @@ class Qwen3MoeForCausalLM(nn.Module):
                         weight_loader = getattr(
                             param, "weight_loader", default_weight_loader
                         )
-                        weight_loader(param, loaded_weight)
+                        weight_loader(param, loaded_weight.to(dtype=param.dtype))
                     else:
                         logger.warning(f"Parameter {name} not found in params_dict")
 

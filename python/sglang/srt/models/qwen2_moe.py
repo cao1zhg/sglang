@@ -183,6 +183,7 @@ class Qwen2MoeSparseMoeBlock(nn.Module):
             config.hidden_size,
             config.num_experts,
             bias=False,
+            params_dtype=torch.float32,
             quant_config=None,
             prefix=add_prefix("gate", prefix),
         )
@@ -256,7 +257,7 @@ class Qwen2MoeSparseMoeBlock(nn.Module):
         shared_output = None
         if hidden_states.shape[0] > 0:
             # router_logits: (num_tokens, n_experts)
-            router_logits, _ = self.gate(hidden_states)
+            router_logits, _ = self.gate(hidden_states.to(torch.float32))
             shared_output = self._forward_shared_experts(hidden_states)
             topk_output = self.topk(
                 hidden_states,
@@ -280,7 +281,7 @@ class Qwen2MoeSparseMoeBlock(nn.Module):
 
     def _forward_router_experts(self, hidden_states: torch.Tensor):
         # router_logits: (num_tokens, n_experts)
-        router_logits, _ = self.gate(hidden_states)
+        router_logits, _ = self.gate(hidden_states.to(torch.float32))
         topk_output = self.topk(hidden_states, router_logits)
         return self.experts(hidden_states, topk_output)
 
@@ -868,7 +869,7 @@ class Qwen2MoeForCausalLM(nn.Module):
                         weight_loader = getattr(
                             param, "weight_loader", default_weight_loader
                         )
-                        weight_loader(param, loaded_weight)
+                        weight_loader(param, loaded_weight.to(dtype=param.dtype))
                     else:
                         logger.warning(f"Parameter {name} not found in params_dict")
 

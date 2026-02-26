@@ -352,7 +352,7 @@ class Qwen3VLMoeForConditionalGeneration(Qwen3VLForConditionalGeneration):
                         weight_loader = getattr(
                             param, "weight_loader", default_weight_loader
                         )
-                        weight_loader(param, loaded_weight)
+                        weight_loader(param, loaded_weight.to(dtype=param.dtype))
                     else:
                         logger.warning(f"Parameter {name} not found in params_dict")
 
